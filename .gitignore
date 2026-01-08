@@ -1,0 +1,46 @@
+# IDEs and editors
+.vscode/
+.idea/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Temp files
+*.tmp
+*.swp
+
+# Node
+node_modules/
+
+# Next.js
+.next/
+out/
+build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Backend (Python / FastAPI)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Database / Alembic
+alembic/versions/__pycache__/
+
+# Coverage
+coverage/
+
+# Misc
+.cache/

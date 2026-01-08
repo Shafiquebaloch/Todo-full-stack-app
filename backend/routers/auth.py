@@ -1,41 +1,65 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
-from pydantic import BaseModel # Added import
+from pydantic import BaseModel, EmailStr
+from datetime import datetime, timezone
 
 from .. import models
 from ..database import get_session
-from ..security import create_access_token, verify_password, get_password_hash, create_password_reset_token # Added import
-
-router = APIRouter(
-    prefix="/api/v1/auth",
-    tags=["auth"],
-    responses={404: {"description": "Not found"}},
+from ..security import (
+    create_access_token,
+    verify_password,
+    get_password_hash,
+    create_password_reset_token,
 )
+
+router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+# Pydantic Models for Request Bodies
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
 
 @router.post("/signup", response_model=models.UserPublic)
 def signup(user_create: models.UserCreate, session: Session = Depends(get_session)):
-    hashed_password = get_password_hash(user_create.password)
-    user = models.User(email=user_create.email, hashed_password=hashed_password)
-    
-    existing_user = session.exec(select(models.User).where(models.User.email == user.email)).first()
+    """
+    Create a new user.
+    """
+    existing_user = session.exec(
+        select(models.User).where(models.User.email == user_create.email)
+    ).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            detail="Email already registered",
         )
-        
+
+    hashed_password = get_password_hash(user_create.password)
+    user = models.User(email=user_create.email, hashed_password=hashed_password)
+
     session.add(user)
     session.commit()
     session.refresh(user)
     return user
 
+
 @router.post("/token")
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ):
-    user = session.exec(select(models.User).where(models.User.email == form_data.username)).first()
+    """
+    Authenticate user and return an access token.
+    """
+    user = session.exec(
+        select(models.User).where(models.User.email == form_data.username)
+    ).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -45,71 +69,66 @@ def login_for_access_token(
     access_token = create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
-class ForgotPasswordRequest(BaseModel): # Added model
-    email: str
 
-@router.post("/forgot-password") # Added endpoint
+@router.post("/forgot-password")
 def forgot_password(
-    request: ForgotPasswordRequest,
-    session: Session = Depends(get_session)
+    request: ForgotPasswordRequest, session: Session = Depends(get_session)
 ):
-    user = session.exec(select(models.User).where(models.User.email == request.email)).first()
-    
-    # Always return a 200 OK, regardless of whether the email exists,
-    # to prevent user enumeration attacks.
+    """
+    Request a password reset token.
+    """
+    user = session.exec(
+        select(models.User).where(models.User.email == request.email)
+    ).first()
+
     if user:
         token, expires_at = create_password_reset_token()
         user.password_reset_token = token
         user.password_reset_expires = expires_at
         session.add(user)
         session.commit()
-        session.refresh(user)
 
-        # In a real application, you would send an email here.
-        # For now, we just print the token for testing/development.
+        # In a real app, send an email with the token.
+        # For development, we print it.
         print(f"Password reset token for {user.email}: {token}")
 
-    return {"message": "If a matching account was found, a password reset email has been sent."}
+    return {"message": "If an account with that email exists, a password reset link has been sent."}
 
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
 
 @router.post("/reset-password")
 def reset_password(
-    request: ResetPasswordRequest,
-    session: Session = Depends(get_session)
+    request: ResetPasswordRequest, session: Session = Depends(get_session)
 ):
+    """
+    Reset user password with a valid token.
+    """
     user = session.exec(
-        select(models.User)
-        .where(models.User.password_reset_token == request.token)
+        select(models.User).where(models.User.password_reset_token == request.token)
     ).first()
 
-    if not user:
+    if not user or not user.password_reset_expires:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token."
+            detail="Invalid or expired reset token.",
         )
-
-    # Check if the token has expired
-    if user.password_reset_expires and user.password_reset_expires < datetime.now(timezone.utc):
-        # Optionally, clear the expired token
+    
+    # Ensure timezone-aware comparison
+    if user.password_reset_expires < datetime.now(timezone.utc):
+        # Clear expired token
         user.password_reset_token = None
         user.password_reset_expires = None
         session.add(user)
         session.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired reset token."
+            detail="Invalid or expired reset token.",
         )
-    
-    # Hash the new password and update the user
+
     user.hashed_password = get_password_hash(request.new_password)
-    user.password_reset_token = None  # Clear the token after use
-    user.password_reset_expires = None # Clear expiration
+    user.password_reset_token = None
+    user.password_reset_expires = None
     session.add(user)
     session.commit()
-    session.refresh(user)
 
     return {"message": "Password has been reset successfully."}
 

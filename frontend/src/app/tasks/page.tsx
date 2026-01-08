@@ -4,9 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { fetchTasks, createTask, updateTask, deleteTask, toggleTask } from "@/services/api";
-import { Task, TaskCreate } from "@/types";
-import TaskItem from "@/components/TaskItem";
-import { toast } from "react-hot-toast";
+import { Task } from "@/types";
+import { Button } from "@/components/ui/button"; // shadcn/ui Button
+import { Input } from "@/components/ui/input";     // shadcn/ui Input
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // shadcn/ui Card
+import { toast } from "@/components/ui/use-toast"; // shadcn/ui toast
+import { Checkbox } from "@/components/ui/checkbox"; // Assuming Checkbox component exists or will be created
+import { Trash2, Edit } from "lucide-react"; // Icons for delete and edit
 
 export default function TasksPage() {
   const { isAuthenticated, loading, logoutUser, token } = useAuth();
@@ -14,7 +18,6 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [dataLoading, setDataLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -30,8 +33,11 @@ export default function TasksPage() {
           const userTasks = await fetchTasks(token);
           setTasks(userTasks);
         } catch (err: any) {
-          setError(err.message || "Failed to fetch tasks.");
-          toast.error(err.message || "Failed to fetch tasks.");
+          toast({
+            title: "Error",
+            description: err.message || "Failed to fetch tasks.",
+            variant: "destructive",
+          });
         } finally {
           setDataLoading(false);
         }
@@ -45,14 +51,20 @@ export default function TasksPage() {
     if (!newTaskTitle.trim() || !token) return;
 
     try {
-      setError(null);
       const createdTask = await createTask(token, { title: newTaskTitle });
       setTasks((prevTasks) => [...prevTasks, createdTask]);
       setNewTaskTitle("");
-      toast.success("Task created successfully!");
+      toast({
+        title: "Success",
+        description: "Task created successfully!",
+        variant: "default",
+      });
     } catch (err: any) {
-      setError(err.message || "Failed to create task.");
-      toast.error(err.message || "Failed to create task.");
+      toast({
+        title: "Error",
+        description: err.message || "Failed to create task.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -61,10 +73,17 @@ export default function TasksPage() {
     try {
       const updated = await updateTask(token, task.id, task);
       setTasks(tasks.map((t) => (t.id === updated.id ? updated : t)));
-      toast.success("Task updated successfully!");
+      toast({
+        title: "Success",
+        description: "Task updated successfully!",
+        variant: "default",
+      });
     } catch (err: any) {
-      setError(err.message || "Failed to update task.");
-      toast.error(err.message || "Failed to update task.");
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update task.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -73,10 +92,17 @@ export default function TasksPage() {
     try {
       await deleteTask(token, id);
       setTasks(tasks.filter((t) => t.id !== id));
-      toast.success("Task deleted successfully!");
+      toast({
+        title: "Success",
+        description: "Task deleted successfully!",
+        variant: "default",
+      });
     } catch (err: any) {
-      setError(err.message || "Failed to delete task.");
-      toast.error(err.message || "Failed to delete task.");
+      toast({
+        title: "Error",
+        description: err.message || "Failed to delete task.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -85,69 +111,79 @@ export default function TasksPage() {
     try {
       const updated = await toggleTask(token, id);
       setTasks(tasks.map((t) => (t.id === updated.id ? updated : t)));
-      toast.success("Task status updated successfully!");
+      toast({
+        title: "Success",
+        description: "Task status updated successfully!",
+        variant: "default",
+      });
     } catch (err: any) {
-      setError(err.message || "Failed to toggle task.");
-      toast.error(err.message || "Failed to toggle task.");
+      toast({
+        title: "Error",
+        description: err.message || "Failed to toggle task.",
+        variant: "destructive",
+      });
     }
   };
 
   if (loading || !isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        Loading...
+      <div className="flex min-h-screen items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <p className="text-gray-700 dark:text-gray-300">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-8">
       <div className="mx-auto max-w-2xl">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-800">Your Tasks</h1>
-          <button
-            onClick={logoutUser}
-            className="rounded-md bg-red-500 px-4 py-2 text-white hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-          >
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Your Tasks</h1>
+          <Button onClick={logoutUser} variant="destructive" size="sm">
             Logout
-          </button>
+          </Button>
         </div>
 
-        {error && (
-          <p className="mb-4 rounded bg-red-100 p-3 text-red-700">{error}</p>
-        )}
-
-        <form onSubmit={handleCreateTask} className="mb-8 flex">
-          <input
+        <form onSubmit={handleCreateTask} className="mb-8 flex space-x-2">
+          <Input
             type="text"
             placeholder="Add a new task"
-            className="flex-grow rounded-l-md border border-gray-300 p-3 focus:border-indigo-500 focus:ring-indigo-500"
             value={newTaskTitle}
             onChange={(e) => setNewTaskTitle(e.target.value)}
             required
+            className="flex-grow"
           />
-          <button
-            type="submit"
-            className="rounded-r-md bg-indigo-600 px-4 py-3 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-          >
+          <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700">
             Add Task
-          </button>
+          </Button>
         </form>
 
         <div className="space-y-4">
           {dataLoading ? (
-            <p>Loading tasks...</p>
+            <p className="text-gray-700 dark:text-gray-300">Loading tasks...</p>
           ) : tasks.length === 0 ? (
-            <p className="text-gray-600">No tasks yet. Add one above!</p>
+            <p className="text-gray-700 dark:text-gray-300">No tasks yet. Add one above!</p>
           ) : (
             tasks.map((task) => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                onUpdate={handleUpdateTask}
-                onDelete={handleDeleteTask}
-                onToggle={handleToggleTask}
-              />
+              <Card key={task.id} className="flex items-center p-4 justify-between dark:bg-gray-800 dark:text-white">
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    checked={task.completed}
+                    onCheckedChange={() => handleToggleTask(task.id!)}
+                    id={`task-${task.id}`}
+                  />
+                  <label htmlFor={`task-${task.id}`} className={`text-lg font-medium ${task.completed ? "line-through text-gray-500" : "text-gray-800 dark:text-white"}`}>
+                    {task.title}
+                  </label>
+                </div>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="icon" onClick={() => handleUpdateTask(task)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="destructive" size="icon" onClick={() => handleDeleteTask(task.id!)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </Card>
             ))
           )}
         </div>

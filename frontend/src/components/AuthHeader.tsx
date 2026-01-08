@@ -4,16 +4,24 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { Button } from "@/components/ui/button"; // shadcn/ui Button
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"; // shadcn/ui Dialog
+import { Input } from "@/components/ui/input"; // shadcn/ui Input
+import { toast } from "@/components/ui/use-toast"; // shadcn/ui toast
 
 interface AuthFormProps {
   type: "signin" | "signup";
   onSubmit: (credentials: { email: string; password: string }) => void;
   loading: boolean;
-  error: string | null;
 }
 
-// Re-using the form structure from the old signin/signup pages
-const AuthForm = ({ type, onSubmit, loading, error }: AuthFormProps) => {
+const AuthForm = ({ type, onSubmit, loading }: AuthFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -24,20 +32,17 @@ const AuthForm = ({ type, onSubmit, loading, error }: AuthFormProps) => {
 
   return (
     <form onSubmit={handleSubmit} className="p-4">
-      <h2 className="mb-4 text-xl font-bold">
+      <DialogTitle className="mb-4 text-center text-2xl font-bold text-gray-800">
         {type === "signin" ? "Sign In" : "Sign Up"}
-      </h2>
-      {error && (
-        <p className="mb-4 rounded bg-red-100 p-2 text-red-700">{error}</p>
-      )}
+      </DialogTitle>
+      
       <div className="mb-4">
         <label htmlFor="email" className="block text-sm font-medium text-gray-700">
           Email
         </label>
-        <input
+        <Input
           type="email"
           id={`${type}-email`}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -47,22 +52,24 @@ const AuthForm = ({ type, onSubmit, loading, error }: AuthFormProps) => {
         <label htmlFor="password" className="block text-sm font-medium text-gray-700">
           Password
         </label>
-        <input
+        <Input
           type="password"
           id={`${type}-password`}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
         />
       </div>
-      <button
-        type="submit"
-        className="w-full rounded-md bg-indigo-600 py-2 px-4 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        disabled={loading}
-      >
+      <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700" disabled={loading}>
         {loading ? "Processing..." : type === "signin" ? "Sign In" : "Sign Up"}
-      </button>
+      </Button>
+      {type === "signin" && (
+        <p className="mt-4 text-center text-sm">
+          <Link href="/forgot-password" className="text-indigo-600 hover:underline">
+            Forgot Password?
+          </Link>
+        </p>
+      )}
     </form>
   );
 };
@@ -70,37 +77,51 @@ const AuthForm = ({ type, onSubmit, loading, error }: AuthFormProps) => {
 export default function AuthHeader() {
   const { user, isAuthenticated, loginUser, signupUser, logoutUser, loading } = useAuth();
   const router = useRouter();
-  const [showSignInModal, setShowSignInModal] = useState(false);
-  const [showSignUpModal, setShowSignUpModal] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async ({ email, password }: { email: string; password: string }) => {
-    setError(null);
     try {
       await loginUser(email, password);
-      setShowSignInModal(false);
+      toast({
+        title: "Success",
+        description: "Signed in successfully!",
+        variant: "default",
+      });
       router.push("/tasks");
     } catch (err: any) {
-      setError(err.message || "Failed to sign in.");
+      toast({
+        title: "Error",
+        description: err.message || "Failed to sign in.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleSignup = async ({ email, password }: { email: string; password: string }) => {
-    setError(null);
     try {
       await signupUser({ email, password });
-      setShowSignUpModal(false);
+      toast({
+        title: "Success",
+        description: "Account created successfully! Please sign in.",
+        variant: "default",
+      });
       router.push("/tasks");
     } catch (err: any) {
-      setError(err.message || "Failed to sign up.");
+      toast({
+        title: "Error",
+        description: err.message || "Failed to sign up.",
+        variant: "destructive",
+      });
     }
   };
 
-
-
   const handleLogout = () => {
     logoutUser();
-    router.push("/"); // Redirect to home or signin page after logout
+    toast({
+      title: "Success",
+      description: "Logged out successfully!",
+      variant: "default",
+    });
+    router.push("/");
   };
 
   return (
@@ -112,63 +133,38 @@ export default function AuthHeader() {
         <div className="flex items-center space-x-4">
           {isAuthenticated ? (
             <>
-              <span className="text-sm">Welcome, {user?.email}</span>
-              <button
-                onClick={handleLogout}
-                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-sm"
-              >
+              <span className="text-sm text-gray-300">Welcome, {user?.email}</span>
+              <Button onClick={handleLogout} variant="destructive" size="sm">
                 Logout
-              </button>
+              </Button>
             </>
           ) : (
             <>
-              <button
-                onClick={() => setShowSignInModal(true)}
-                className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded-md text-sm"
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => setShowSignUpModal(true)}
-                className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm"
-              >
-                Sign Up
-              </button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="default" size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+                    Sign In
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <AuthForm type="signin" onSubmit={handleLogin} loading={loading} />
+                </DialogContent>
+              </Dialog>
 
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+                    Sign Up
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <AuthForm type="signup" onSubmit={handleSignup} loading={loading} />
+                </DialogContent>
+              </Dialog>
             </>
           )}
         </div>
       </nav>
-
-      {/* Sign In Modal */}
-      {showSignInModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
-            <button
-              onClick={() => setShowSignInModal(false)}
-              className="float-right text-gray-500 hover:text-gray-700"
-            >
-              &times;
-            </button>
-            <AuthForm type="signin" onSubmit={handleLogin} loading={loading} error={error} />
-          </div>
-        </div>
-      )}
-
-      {/* Sign Up Modal */}
-      {showSignUpModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
-            <button
-              onClick={() => setShowSignUpModal(false)}
-              className="float-right text-gray-500 hover:text-gray-700"
-            >
-              &times;
-            </button>
-            <AuthForm type="signup" onSubmit={handleSignup} loading={loading} error={error} />
-          </div>
-        </div>
-      )}
     </header>
   );
 }

@@ -26,9 +26,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(tasks.router)
-app.include_router(auth.router) # Include auth router
+app.include_router(tasks.router, prefix="/api/v1", tags=["Tasks"])
+app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 
-@app.get("/health")
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the Todo Full-Stack App API"}
+
+@app.get("/health", tags=["Health"])
 def health_check():
     return {"status": "ok"}

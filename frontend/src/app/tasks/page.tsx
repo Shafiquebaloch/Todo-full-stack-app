@@ -59,7 +59,7 @@ export default function TasksPage() {
   const handleUpdateTask = async (task: Task) => {
     if (!token) return;
     try {
-      const updated = await updateTask(token, task);
+      const updated = await updateTask(token, task.id, task);
       setTasks(tasks.map((t) => (t.id === updated.id ? updated : t)));
       toast.success("Task updated successfully!");
     } catch (err: any) {

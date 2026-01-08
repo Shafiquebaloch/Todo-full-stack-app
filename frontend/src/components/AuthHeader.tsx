@@ -5,12 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
+interface AuthFormProps {
+  type: "signin" | "signup";
+  onSubmit: (credentials: { email: string; password: string }) => void;
+  loading: boolean;
+  error: string | null;
+}
+
 // Re-using the form structure from the old signin/signup pages
-const AuthForm = ({ type, onSubmit, loading, error }) => {
+const AuthForm = ({ type, onSubmit, loading, error }: AuthFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({ email, password });
   };
@@ -67,7 +74,7 @@ export default function AuthHeader() {
   const [showSignUpModal, setShowSignUpModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async ({ email, password }) => {
+  const handleLogin = async ({ email, password }: { email: string; password: string }) => {
     setError(null);
     try {
       await loginUser(email, password);
@@ -78,7 +85,7 @@ export default function AuthHeader() {
     }
   };
 
-  const handleSignup = async ({ email, password }) => {
+  const handleSignup = async ({ email, password }: { email: string; password: string }) => {
     setError(null);
     try {
       await signupUser({ email, password });

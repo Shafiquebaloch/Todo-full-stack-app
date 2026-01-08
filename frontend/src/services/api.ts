@@ -90,3 +90,64 @@ export const fetchTasks = async (token: string): Promise<Task[]> => {
 
 // You'll need to define types in a separate file, e.g., src/types/index.ts
 // for UserCreate, User, Task
+
+export const createTask = async (token: string, taskData: { title: string, description?: string }): Promise<Task> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tasks`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(taskData),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to create task');
+  }
+  return response.json();
+};
+
+export const updateTask = async (token: string, taskId: number, taskData: Partial<Task>): Promise<Task> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tasks/${taskId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(taskData),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to update task');
+  }
+  return response.json();
+};
+
+export const deleteTask = async (token: string, taskId: number): Promise<void> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tasks/${taskId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.detail || 'Failed to delete task');
+  }
+};
+
+export const toggleTask = async (token: string, taskId: number): Promise<Task> => {
+    const response = await fetch(`${API_BASE_URL}/api/v1/tasks/${taskId}/toggle`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+        },
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to toggle task completion');
+    }
+    return response.json();
+};

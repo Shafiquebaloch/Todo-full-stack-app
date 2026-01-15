@@ -1,5 +1,5 @@
 import pytest
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel
 from fastapi.testclient import TestClient
 from datetime import datetime, timedelta, timezone
 from jose import jwt
@@ -9,29 +9,41 @@ from backend.main import app
 from backend import database # Import the database module to patch its engine
 from backend.models import User, Task # Import your models
 from backend.security import get_password_hash, ALGORITHM, SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES # Import security functions
+from backend.test_utils import create_db_and_tables, drop_db_and_tables # Import utility functions
 
-# Use a separate in-memory SQLite database for testing, with check_same_thread=False
-# Define a function to get a new test engine for each test run
-def get_test_engine():
-    return create_engine("sqlite:///:memory:", echo=False, connect_args={"check_same_thread": False})
+
+@pytest.fixture(name="test_db_engine")
+def test_db_engine_fixture():
+    # Store the original engine
+    original_engine = database.engine
+    
+    # Create a fresh test engine for each test session
+    test_engine = database.create_db_engine("sqlite:///:memory:")
+    
+    # Patch the global engine in database.py
+    database.engine = test_engine
+
+    # Create tables for this specific engine
+    create_db_and_tables(test_engine)
+    
+    yield test_engine
+    
+    # Drop tables and clear metadata
+    drop_db_and_tables(test_engine)
+    SQLModel.metadata.clear()
+    
+    # Restore the original engine
+    database.engine = original_engine
+
 
 @pytest.fixture(name="session")
-def session_fixture():
-    # Create a new engine for each test session to ensure isolation
-    test_engine_instance = get_test_engine()
-    SQLModel.metadata.create_all(test_engine_instance) # Create tables for this specific engine
-    with Session(test_engine_instance) as session:
+def session_fixture(test_db_engine):
+    with Session(test_db_engine) as session:
         yield session
-    SQLModel.metadata.drop_all(test_engine_instance) # Drop tables for this specific engine
 
 @pytest.fixture(name="client")
 def client_fixture(session: Session): # Depends on session_fixture, ensuring tables are created
-    # Ensure TESTING environment variable is set for conditional logic in main.py
     os.environ["TESTING"] = "True"
-
-    # Temporarily override the app's database engine with the test engine
-    original_database_engine = database.engine
-    database.engine = session.bind # The engine from the current session fixture
 
     # Override get_session dependency for the app to use our test session
     def override_get_session():
@@ -44,7 +56,6 @@ def client_fixture(session: Session): # Depends on session_fixture, ensuring tab
 
     # Clean up after test
     app.dependency_overrides.clear()
-    database.engine = original_database_engine # Restore original engine
     del os.environ["TESTING"] # Unset TESTING environment variable
 
 @pytest.fixture(name="test_user")

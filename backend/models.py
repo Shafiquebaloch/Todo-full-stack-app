@@ -21,11 +21,21 @@ class User(UserBase, table=True):
 
     tasks: List["Task"] = Relationship(back_populates="owner")
 
+from sqlalchemy import Column, DateTime
+from sqlalchemy.sql import func
+
 class Task(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str = Field(index=True)
     description: Optional[str] = Field(default=None, index=True)
     completed: bool = Field(default=False)
+    
+    created_at: Optional[datetime] = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now())
+    )
+    updated_at: Optional[datetime] = Field(
+        sa_column=Column(DateTime(timezone=True), onupdate=func.now())
+    )
     
     owner_id: Optional[int] = Field(default=None, foreign_key="user.id")
     owner: Optional[User] = Relationship(back_populates="tasks")

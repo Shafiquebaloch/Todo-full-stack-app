@@ -45,7 +45,11 @@ def create_task(
     """
     Create a new task for the authenticated user.
     """
-    db_task = models.Task.model_validate(task, update={"owner_id": current_user.id})
+    db_task = models.Task(
+        title=task.title,
+        description=task.description,
+        owner_id=current_user.id
+    )
     session.add(db_task)
     session.commit()
     session.refresh(db_task)
